@@ -4,7 +4,6 @@ import com.google.protobuf.Int32Value
 import com.google.protobuf.Int64Value
 import com.google.protobuf.StringValue
 import com.google.protobuf.Timestamp
-import dev.crashteam.bigboss.config.properties.BigBossProperties
 import dev.crashteam.bigboss.repository.SubscriptionRepository
 import dev.crashteam.bigboss.repository.entity.SubscriptionEntity
 import dev.crashteam.bigboss.service.model.CreateSubscriptionDto
