@@ -8,9 +8,9 @@
         <version>1.0.2</version>
     </parent>
     <artifactId>big-boss</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.1</version>
     <name>big-boss</name>
-    <description>big-boss</description>
+    <description>account service</description>
     <properties>
         <java.version>17</java.version>
         <kotlin.version>1.6.21</kotlin.version>
@@ -247,23 +247,5 @@
             </plugin>
         </plugins>
     </build>
-    <repositories>
-        <repository>
-            <id>spring-snapshots</id>
-            <name>Spring Snapshots</name>
-            <url>https://repo.spring.io/snapshot</url>
-            <releases>
-                <enabled>false</enabled>
-            </releases>
-        </repository>
-        <repository>
-            <id>spring-milestones</id>
-            <name>Spring Milestones</name>
-            <url>https://repo.spring.io/milestone</url>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-    </repositories>
 
 </project>
