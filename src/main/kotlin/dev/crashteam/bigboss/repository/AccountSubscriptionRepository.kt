@@ -13,5 +13,5 @@ interface AccountSubscriptionRepository : JpaRepository<AccountSubscriptionEntit
 
     fun findByAccount_UserId(userId: String): AccountSubscriptionEntity?
 
-    fun deleteByAccount_UserId(userId: String)
+    fun deleteByAccount_UserIdAndSubscription_Id(userId: String, subscriptionId: UUID)
 }

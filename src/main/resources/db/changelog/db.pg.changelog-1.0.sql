@@ -1,22 +1,35 @@
 --liquibase formatted sql
---changeset vitaxa:create-initial
+--changeset vitaxa:create-initial-schema
+
+CREATE TABLE product
+(
+    id          uuid PRIMARY KEY,
+    name        CHARACTER VARYING NOT NULL UNIQUE,
+    description CHARACTER VARYING NOT NULL
+);
+
 CREATE TABLE subscription
 (
     id          uuid PRIMARY KEY,
+    product_id  uuid              NOT NULL,
     name        CHARACTER VARYING NOT NULL,
     description CHARACTER VARYING NOT NULL,
     price       BIGINT            NOT NULL,
-    level       SMALLINT          NOT NULL UNIQUE
+    level       SMALLINT          NOT NULL,
+
+    CONSTRAINT fk_subscription_product FOREIGN KEY (product_id) REFERENCES product (id)
 );
+
+CREATE UNIQUE INDEX subscription_product_id_level_idx on subscription (product_id, level);
 
 CREATE UNIQUE INDEX subscription_name_idx on subscription (name);
 
 CREATE TABLE account
 (
-    id        BIGSERIAL PRIMARY KEY,
-    user_id   CHARACTER VARYING NOT NULL,
-    email     CHARACTER VARYING NOT NULL,
-    blocked   BOOLEAN DEFAULT FALSE
+    id      BIGSERIAL PRIMARY KEY,
+    user_id CHARACTER VARYING NOT NULL,
+    email   CHARACTER VARYING NOT NULL,
+    blocked BOOLEAN DEFAULT FALSE
 );
 
 CREATE UNIQUE INDEX user_user_id_idx on account (user_id);
@@ -67,5 +80,5 @@ CREATE TABLE subscription_saga_coordinator
 
     CONSTRAINT fk_subscription_saga_coordinator_account FOREIGN KEY (account_id) REFERENCES account (id),
     CONSTRAINT fk_subscription_saga_coordinator_subscription FOREIGN KEY (subscription_id) REFERENCES subscription (id)
-)
+);
 

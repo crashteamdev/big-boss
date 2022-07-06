@@ -9,6 +9,7 @@ class CreateSubscriptionRequestToDtoConverter : DataConverter<CreateSubscription
 
     override fun convert(source: CreateSubscriptionRequest): CreateSubscriptionDto {
         return CreateSubscriptionDto(
+            productId = source.productId,
             name = source.name,
             description = source.description,
             price = source.price,

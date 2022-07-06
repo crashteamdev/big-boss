@@ -78,7 +78,12 @@ class SubscriptionSagaCoordinator(
             return
         }
         val accountEntity = sagaCoordinatorEntity.account
-        val accountSubscription = accountEntity?.accountSubscription!!
+        val accountSubscription =
+            accountEntity?.accountSubscriptions?.find { it.subscription == sagaCoordinatorEntity.subscription }
+        if (accountSubscription == null) {
+            log.warn { "Not found account subscription for saga transaction. userId=${accountEntity?.userId}; subscriptionId=${sagaCoordinatorEntity.subscription?.id}" }
+            return
+        }
         accountSubscription.state = AccountSubscriptionState.active
         accountSubscriptionRepository.save(accountSubscription)
 
@@ -94,8 +99,11 @@ class SubscriptionSagaCoordinator(
             log.warn { "Saga coordinate transaction not found: trxId=${rollbackUserSubscriptionEvent.trxId}" }
             return
         }
-        val accountEntity = sagaCoordinatorEntity.account
-        accountSubscriptionRepository.deleteById(accountEntity?.accountSubscription?.id!!)
+        val accountEntity = sagaCoordinatorEntity.account!!
+        accountSubscriptionRepository.deleteByAccount_UserIdAndSubscription_Id(
+            accountEntity.userId!!,
+            sagaCoordinatorEntity.subscription!!.id!!
+        )
 
         sagaCoordinatorEntity.state = SagaState.rollback
         sagaCoordinatorRepository.save(sagaCoordinatorEntity)

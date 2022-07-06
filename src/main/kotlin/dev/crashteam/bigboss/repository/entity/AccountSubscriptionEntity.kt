@@ -14,8 +14,8 @@ import javax.persistence.*
 )
 class AccountSubscriptionEntity : BaseEntity<Long>() {
 
-    @OneToOne
-    @JoinColumn(name = "account_id", referencedColumnName = "id")
+    @ManyToOne
+    @JoinColumn(name="account_id", nullable = false)
     var account: AccountEntity? = null
 
     @OneToOne

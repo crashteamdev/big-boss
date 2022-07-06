@@ -1,19 +1,13 @@
 package dev.crashteam.bigboss.service
 
-import com.google.protobuf.Int32Value
-import com.google.protobuf.Int64Value
-import com.google.protobuf.StringValue
 import com.google.protobuf.Timestamp
+import dev.crashteam.bigboss.repository.ProductRepository
 import dev.crashteam.bigboss.repository.SubscriptionRepository
 import dev.crashteam.bigboss.repository.entity.SubscriptionEntity
 import dev.crashteam.bigboss.service.model.CreateSubscriptionDto
 import dev.crashteam.bigboss.service.model.ModifySubscriptionDto
-import dev.crashteam.subscription.event.SubscriptionChange
-import dev.crashteam.subscription.event.SubscriptionCreated
 import dev.crashteam.subscription.event.SubscriptionEvent
-import dev.crashteam.subscription.event.SubscriptionModify
 import mu.KotlinLogging
-import org.apache.kafka.clients.producer.ProducerRecord
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Service
 import java.time.Instant
@@ -23,13 +17,17 @@ import javax.transaction.Transactional
 @Service
 class SubscriptionService(
     private val subscriptionRepository: SubscriptionRepository,
+    private val productRepository: ProductRepository,
     private val kafkaTemplate: KafkaTemplate<String, ByteArray>
 ) {
 
     @Transactional
     fun createSubscription(subscriptionDto: CreateSubscriptionDto): SubscriptionEntity {
+        val productEntity = productRepository.findById(UUID.fromString(subscriptionDto.productId))
+            .orElseThrow { IllegalArgumentException("Can't find product id ${subscriptionDto.productId}") }
         val subscriptionEntity = SubscriptionEntity().apply {
             id = UUID.randomUUID()
+            product = productEntity
             name = subscriptionDto.name
             description = subscriptionDto.description
             price = subscriptionDto.price
@@ -66,7 +64,7 @@ class SubscriptionService(
 
     @Transactional
     fun modifySubscription(modifySubscriptionDto: ModifySubscriptionDto): SubscriptionEntity? {
-        val subscriptionEntity = subscriptionRepository.findById(modifySubscriptionDto.subId).orElse(null)
+        val subscriptionEntity = subscriptionRepository.findById(modifySubscriptionDto.subscriptionId).orElse(null)
             ?: return null
         if (modifySubscriptionDto.level != null) {
             subscriptionEntity.level = modifySubscriptionDto.level

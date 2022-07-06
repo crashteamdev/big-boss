@@ -4,5 +4,5 @@ import java.util.*
 
 data class RemoveUserSubscriptionDto(
     val userId: String,
-    val subId: UUID
+    val subscriptionId: UUID
 )

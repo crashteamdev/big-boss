@@ -11,7 +11,7 @@ class RemoveUserSubscriptionToDtoConverter : DataConverter<RemoveAccountSubscrip
     override fun convert(source: RemoveAccountSubscriptionRequest): RemoveUserSubscriptionDto? {
         return RemoveUserSubscriptionDto(
             userId = source.userId,
-            subId = UUID.fromString(source.subId)
+            subscriptionId = UUID.fromString(source.subscriptionId)
         )
     }
 }

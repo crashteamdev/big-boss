@@ -1,6 +1,5 @@
 package dev.crashteam.bigboss.rpc
 
-import com.google.protobuf.Empty
 import com.google.protobuf.Timestamp
 import dev.crashteam.bigboss.repository.SubscriptionRepository
 import dev.crashteam.bigboss.repository.entity.AccountSubscriptionEntity
@@ -11,7 +10,7 @@ import dev.crashteam.bigboss.service.error.SubscriptionAlreadyExistsException
 import dev.crashteam.bigboss.service.model.CreateSubscriptionDto
 import dev.crashteam.bigboss.service.model.ModifySubscriptionDto
 import dev.crashteam.bigboss.service.model.RemoveUserSubscriptionDto
-import dev.crashteam.bigboss.service.model.SetUserSubscriptionDto
+import dev.crashteam.bigboss.service.model.AddUserSubscriptionDto
 import dev.crashteam.subscription.*
 import io.grpc.stub.StreamObserver
 import mu.KotlinLogging
@@ -39,9 +38,15 @@ class SubscriptionRpcService(
             val subscriptionEntity = subscriptionService.createSubscription(createSubscriptionDto)
             CreateSubscriptionResponse.newBuilder().apply {
                 this.successResponse = SuccessCreateSubscriptionResponse.newBuilder().apply {
-                    this.subId = subscriptionEntity.id.toString()
+                    this.subscriptionId = subscriptionEntity.id.toString()
                 }.build()
             }.build()
+        } catch (e: IllegalArgumentException) {
+            val errorResponse = ErrorCreateSubscriptionResponse.newBuilder()
+                .setCode(ErrorCreateSubscriptionResponse.ErrorCode.BAD_REQUEST_PARAMS)
+                .setDescription("Failed to create subscription case of bad request")
+                .build()
+            CreateSubscriptionResponse.newBuilder().setErrorResponse(errorResponse).build()
         } catch (e: Exception) {
             log.error(e) { "Can't create subscription" }
             val errorResponse = ErrorCreateSubscriptionResponse.newBuilder()
@@ -74,12 +79,12 @@ class SubscriptionRpcService(
                 ModifySubscriptionResponse.newBuilder().setSuccessResponse(subscriptionResponse).build()
             }
         } catch (e: Exception) {
-            log.error(e) { "Failed to modify subscription ${request.subId}" }
+            log.error(e) { "Failed to modify subscription ${request.subscriptionId}" }
             ModifySubscriptionResponse.newBuilder()
                 .setErrorResponse(
                     ErrorModifySubscriptionResponse.newBuilder()
                         .setCode(ErrorModifySubscriptionResponse.ErrorCode.UNEXPECTED_ERROR)
-                        .setDescription("Failed to modify subscription ${request.subId}")
+                        .setDescription("Failed to modify subscription ${request.subscriptionId}")
                         .build()
                 ).build()
         }
@@ -87,14 +92,15 @@ class SubscriptionRpcService(
         responseObserver.onCompleted()
     }
 
-    override fun setAccountSubscription(
-        request: SetAccountSubscriptionRequest,
-        responseObserver: StreamObserver<SetAccountSubscriptionResponse>
+    override fun addAccountSubscription(
+        request: AddAccountSubscriptionRequest,
+        responseObserver: StreamObserver<AddAccountSubscriptionResponse>
     ) {
         log.info { "Set account subscription request: $request" }
-        val setUserSubscriptionDto = SetUserSubscriptionDto(
+        val addUserSubscriptionDto = AddUserSubscriptionDto(
             userId = request.userId,
-            subId = UUID.fromString(request.subId),
+            productId = UUID.fromString(request.productId),
+            subscriptionId = UUID.fromString(request.subscriptionId),
             validUntil = LocalDateTime.ofEpochSecond(
                 request.validUntil.seconds,
                 request.validUntil.nanos,
@@ -103,33 +109,33 @@ class SubscriptionRpcService(
         )
         val response = try {
             val accountSubscription: AccountSubscriptionEntity =
-                userSubscriptionService.setUserSubscription(setUserSubscriptionDto)
-            val successResponse = SuccessSetAccountResponse.newBuilder()
+                userSubscriptionService.addUserSubscription(addUserSubscriptionDto)
+            val successResponse = SuccessAddAccountResponse.newBuilder()
                 .setSubscriptionId(accountSubscription.subscription?.id!!.toString())
                 .build()
-            SetAccountSubscriptionResponse.newBuilder()
+            AddAccountSubscriptionResponse.newBuilder()
                 .setSuccessResponse(successResponse).build()
         } catch (e: SubscriptionAlreadyExistsException) {
-            val errorResponse = ErrorSetAccountResponse.newBuilder()
-                .setCode(ErrorSetAccountResponse.ErrorCode.ALREADY_EXISTS)
+            val errorResponse = ErrorAddAccountResponse.newBuilder()
+                .setCode(ErrorAddAccountResponse.ErrorCode.ALREADY_EXISTS)
                 .setDescription(e.message)
                 .build()
-            SetAccountSubscriptionResponse.newBuilder()
+            AddAccountSubscriptionResponse.newBuilder()
                 .setErrorResponse(errorResponse).build()
         } catch (e: AccountBalanceLimitException) {
-            val errorResponse = ErrorSetAccountResponse.newBuilder()
-                .setCode(ErrorSetAccountResponse.ErrorCode.NOT_ENOUGH_CREDIT)
+            val errorResponse = ErrorAddAccountResponse.newBuilder()
+                .setCode(ErrorAddAccountResponse.ErrorCode.NOT_ENOUGH_CREDIT)
                 .setDescription(e.message)
                 .build()
-            SetAccountSubscriptionResponse.newBuilder()
+            AddAccountSubscriptionResponse.newBuilder()
                 .setErrorResponse(errorResponse).build()
         } catch (e: Exception) {
             log.error(e) { "Can't create or update user subscription" }
-            val errorResponse = ErrorSetAccountResponse.newBuilder()
-                .setCode(ErrorSetAccountResponse.ErrorCode.UNEXPECTED_ERROR)
+            val errorResponse = ErrorAddAccountResponse.newBuilder()
+                .setCode(ErrorAddAccountResponse.ErrorCode.UNEXPECTED_ERROR)
                 .setDescription("Unknown error. Can't create or update user subscription.")
                 .build()
-            SetAccountSubscriptionResponse.newBuilder()
+            AddAccountSubscriptionResponse.newBuilder()
                 .setErrorResponse(errorResponse).build()
         }
         responseObserver.onNext(response)
@@ -145,17 +151,17 @@ class SubscriptionRpcService(
             val removeUserSubscriptionDto = conversationService.convert(request, RemoveUserSubscriptionDto::class.java)
             userSubscriptionService.removeUserSubscription(removeUserSubscriptionDto!!)
             val successResponse = SuccessRemoveAccountSubscriptionResponse.newBuilder()
-                .setSubId(removeUserSubscriptionDto.subId.toString())
+                .setSubscriptionId(removeUserSubscriptionDto.subscriptionId.toString())
                 .setUserId(removeUserSubscriptionDto.userId)
                 .build()
             RemoveAccountSubscriptionResponse.newBuilder()
                 .setSuccessResponse(successResponse)
                 .build()
         } catch (e: Exception) {
-            log.error(e) { "Failed to remove account subscription. subId=${request.subId}; userId=${request.subId}" }
+            log.error(e) { "Failed to remove account subscription. subscriptionId=${request.subscriptionId}; userId=${request.userId}" }
             val errorResponse = ErrorRemoveAccountSubscriptionResponse.newBuilder()
                 .setCode(ErrorRemoveAccountSubscriptionResponse.ErrorCode.UNEXPECTED_ERROR)
-                .setDescription("Failed to remove account subscription. subId=${request.subId}; userId=${request.subId}")
+                .setDescription("Failed to remove account subscription. subId=${request.subscriptionId}; userId=${request.userId}")
                 .build()
             RemoveAccountSubscriptionResponse.newBuilder()
                 .setErrorResponse(errorResponse)
@@ -173,40 +179,51 @@ class SubscriptionRpcService(
     }
 
     override fun getAccountSubscription(
-        request: GetSubscriptionRequest,
-        responseObserver: StreamObserver<GetSubscriptionResponse>
+        request: GetAccountSubscriptionRequest,
+        responseObserver: StreamObserver<GetAccountSubscriptionResponse>
     ) {
         log.info { "Get account subscription: $request" }
-        val accountSubscription = userSubscriptionService.getAccountSubscription(request.subId)
-        val response = if (accountSubscription == null) {
-            GetSubscriptionResponse.newBuilder()
-                .setErrorResponse(ErrorGetSubscriptionResponse.newBuilder().apply {
-                    this.code = ErrorGetSubscriptionResponse.ErrorCode.NOT_FOUND
-                    this.description = "Not found user subscription by id: ${request.subId}"
+        val accountSubscriptions = userSubscriptionService.getAccountSubscriptions(request.userId)
+        val response = if (accountSubscriptions.isNullOrEmpty()) {
+            GetAccountSubscriptionResponse.newBuilder()
+                .setErrorResponse(ErrorGetAccountSubscriptionResponse.newBuilder().apply {
+                    this.code = ErrorGetAccountSubscriptionResponse.ErrorCode.NOT_FOUND
+                    this.description = "Not found user by userId: ${request.userId}"
                 })
                 .build()
         } else {
-            GetSubscriptionResponse.newBuilder()
-                .setSuccessResponse(SuccessGetSubscriptionResponse.newBuilder().apply {
-                    this.plan = AccountSubscription.newBuilder().apply {
-                        val subscription =
-                            conversationService.convert(accountSubscription.subscription, Subscription::class.java)
-                        this.userId = accountSubscription.account!!.userId
-                        this.subscription = subscription
-                        val validUntil = accountSubscription.validUntil!!.toInstant(ZoneOffset.UTC)
-                        this.validUntil =
-                            Timestamp.newBuilder().setSeconds(validUntil.epochSecond).setNanos(validUntil.nano).build()
+            val accountProducts = accountSubscriptions.map { accountSubscriptionEntity ->
+                AccountProduct.newBuilder().apply {
+                    this.product = AccountProduct.ProductInfo.newBuilder().apply {
+                        this.productId = accountSubscriptionEntity.subscription?.product?.id.toString()
+                        this.name = accountSubscriptionEntity.subscription?.product?.name
                     }.build()
+                    this.subscription = AccountProduct.SubscriptionInfo.newBuilder().apply {
+                        this.subscriptionId = accountSubscriptionEntity.subscription?.id.toString()
+                        this.name = accountSubscriptionEntity.subscription?.name
+                    }.build()
+                    val validUntil = accountSubscriptionEntity.validUntil!!.toInstant(ZoneOffset.UTC)
+                    this.validUntil =
+                        Timestamp.newBuilder().setSeconds(validUntil.epochSecond).setNanos(validUntil.nano).build()
+                }.build()
+            }
+            GetAccountSubscriptionResponse.newBuilder()
+                .setSuccessResponse(SuccessGetAccountSubscriptionResponse.newBuilder().apply {
+                    this.userId = request.userId
+                    this.addAllAccountProducts(accountProducts)
                 }).build()
         }
         responseObserver.onNext(response)
         responseObserver.onCompleted()
     }
 
-    override fun getAllSubscription(request: Empty, responseObserver: StreamObserver<AllSubscriptionResponse>) {
-        log.info { "Get all subscriptions" }
-        val subscriptionList = subscriptionRepository.findAll()
-        val allSubscriptionResponse = AllSubscriptionResponse.newBuilder().apply {
+    override fun getAllSubscription(
+        request: GetAllSubscriptionRequest,
+        responseObserver: StreamObserver<GetAllSubscriptionResponse>
+    ) {
+        log.info { "Get all subscriptions: $request" }
+        val subscriptionList = subscriptionRepository.findByProduct_Id(UUID.fromString(request.productId))
+        val allSubscriptionResponse = GetAllSubscriptionResponse.newBuilder().apply {
             for (subscriptionEntity in subscriptionList) {
                 val subscription = conversationService.convert(subscriptionEntity, Subscription::class.java)
                 addPlan(subscription)

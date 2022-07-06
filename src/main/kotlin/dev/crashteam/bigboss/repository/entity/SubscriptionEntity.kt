@@ -11,6 +11,10 @@ class SubscriptionEntity {
     @Id
     var id: UUID? = null
 
+    @ManyToOne
+    @JoinColumn(name="product_id", nullable = false)
+    var product: ProductEntity? = null
+
     @Column(nullable = false)
     var name: String? = null
 

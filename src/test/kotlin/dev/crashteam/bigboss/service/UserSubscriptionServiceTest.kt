@@ -6,8 +6,8 @@ import dev.crashteam.bigboss.extensions.KafkaContainerExtension
 import dev.crashteam.bigboss.repository.*
 import dev.crashteam.bigboss.repository.entity.*
 import dev.crashteam.bigboss.service.error.AccountBalanceLimitException
+import dev.crashteam.bigboss.service.model.AddUserSubscriptionDto
 import dev.crashteam.bigboss.service.model.RemoveUserSubscriptionDto
-import dev.crashteam.bigboss.service.model.SetUserSubscriptionDto
 import dev.crashteam.chest.event.WalletCreditReserved
 import dev.crashteam.chest.event.WalletReplyEvent
 import org.apache.kafka.clients.admin.AdminClient
@@ -54,6 +54,9 @@ class UserSubscriptionServiceTest : AbstractIntegrationTest() {
     lateinit var sagaCoordinatorRepository: SubscriptionSagaCoordinatorRepository
 
     @Autowired
+    lateinit var productRepository: ProductRepository
+
+    @Autowired
     lateinit var userSubscriptionService: UserSubscriptionService
 
     @Autowired
@@ -66,15 +69,24 @@ class UserSubscriptionServiceTest : AbstractIntegrationTest() {
 
     val userId: UUID = UUID.randomUUID()
 
+    val productId = UUID.randomUUID()
+
     @BeforeEach
     internal fun setUp() {
         accountSubscriptionRepository.deleteAll()
         sagaCoordinatorRepository.deleteAll()
         subscriptionRepository.deleteAll()
+        productRepository.deleteAll()
         accountWalletRepository.deleteAll()
         accountRepository.deleteAll()
+        val productEntity = productRepository.save(ProductEntity().apply {
+            this.id = productId
+            this.name = "analytics"
+            this.description = "just best of the best analytic"
+        })
         val newSubscriptionEntity = SubscriptionEntity().apply {
             this.id = this@UserSubscriptionServiceTest.subscriptionId
+            this.product = productEntity
             this.name = "testSubName"
             this.description = "test description"
             this.level = 0
@@ -89,26 +101,28 @@ class UserSubscriptionServiceTest : AbstractIntegrationTest() {
     }
 
     @Test
-    fun `set user subscription with zero balance`() {
+    fun `add user subscription with zero balance`() {
         // Given
-        val setUserSubscriptionDto = SetUserSubscriptionDto(
+        val addUserSubscriptionDto = AddUserSubscriptionDto(
             userId = userId.toString(),
-            subId = subscriptionId,
+            productId = productId,
+            subscriptionId = subscriptionId,
             validUntil = LocalDateTime.now().plusDays(30)
         )
 
         // When
         assertThrows(
             AccountBalanceLimitException::class.java
-        ) { userSubscriptionService.setUserSubscription(setUserSubscriptionDto) }
+        ) { userSubscriptionService.addUserSubscription(addUserSubscriptionDto) }
     }
 
     @Test
-    fun `set user subscription`() {
+    fun `add user subscription`() {
         // Given
-        val setUserSubscriptionDto = SetUserSubscriptionDto(
+        val addUserSubscriptionDto = AddUserSubscriptionDto(
             userId = userId.toString(),
-            subId = subscriptionId,
+            productId = productId,
+            subscriptionId = subscriptionId,
             validUntil = LocalDateTime.now().plusDays(30)
         )
 
@@ -121,7 +135,7 @@ class UserSubscriptionServiceTest : AbstractIntegrationTest() {
             this.blocked = false
         }
         accountWalletRepository.save(accountWalletEntity)
-        userSubscriptionService.setUserSubscription(setUserSubscriptionDto)
+        userSubscriptionService.addUserSubscription(addUserSubscriptionDto)
         val sagaCoordinatorEntity = sagaCoordinatorRepository.findAll().first()
         val walletReplyEvent = WalletReplyEvent.newBuilder().apply {
             this.eventId = UUID.randomUUID().toString()
@@ -146,12 +160,13 @@ class UserSubscriptionServiceTest : AbstractIntegrationTest() {
             )
         )
         await.atMost(60, TimeUnit.SECONDS).until {
-            accountRepository.findByUserId(userId.toString())?.accountSubscription?.state == AccountSubscriptionState.active
+            val accEntity = accountRepository.findByUserId(userId.toString())
+            accEntity?.accountSubscriptions?.find { it.state == AccountSubscriptionState.active } != null
         }
         val account = accountRepository.findByUserId(userId.toString())
 
         // Then
-        assertTrue(account?.accountSubscription?.state == AccountSubscriptionState.active)
+        assertTrue(account?.accountSubscriptions?.find { it.state == AccountSubscriptionState.active } != null)
     }
 
     @Test
@@ -177,7 +192,7 @@ class UserSubscriptionServiceTest : AbstractIntegrationTest() {
         val accountWithoutSub = accountRepository.findByUserId(userId.toString())
 
         // Then
-        assertTrue(accountWithoutSub?.accountSubscription == null)
+        assertTrue(accountWithoutSub?.accountSubscriptions.isNullOrEmpty())
     }
 
     @TestConfiguration

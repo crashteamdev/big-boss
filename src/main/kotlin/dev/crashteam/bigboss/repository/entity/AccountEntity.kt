@@ -14,8 +14,8 @@ class AccountEntity : BaseEntity<Long>() {
     @Column(nullable = false)
     var blocked: Boolean = false
 
-    @OneToOne(mappedBy = "account")
-    var accountSubscription: AccountSubscriptionEntity? = null
+    @OneToMany(mappedBy="account", fetch = FetchType.EAGER)
+    var accountSubscriptions: Set<AccountSubscriptionEntity>? = null
 
     @OneToOne(mappedBy = "account", fetch = FetchType.LAZY)
     var wallet: AccountWalletEntity? = null

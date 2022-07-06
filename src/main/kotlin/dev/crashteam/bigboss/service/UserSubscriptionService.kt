@@ -7,18 +7,14 @@ import dev.crashteam.bigboss.repository.entity.AccountEntity
 import dev.crashteam.bigboss.repository.entity.AccountSubscriptionEntity
 import dev.crashteam.bigboss.repository.entity.AccountSubscriptionState
 import dev.crashteam.bigboss.saga.event.SetUserSubscriptionEvent
-import dev.crashteam.bigboss.saga.event.UpgradeUserSubscriptionEvent
 import dev.crashteam.bigboss.service.error.AccountBalanceLimitException
 import dev.crashteam.bigboss.service.error.SubscriptionAlreadyExistsException
 import dev.crashteam.bigboss.service.error.SubscriptionNotFoundException
-import dev.crashteam.bigboss.service.error.SubscriptionUpgradeFailedException
+import dev.crashteam.bigboss.service.model.AddUserSubscriptionDto
 import dev.crashteam.bigboss.service.model.RemoveUserSubscriptionDto
-import dev.crashteam.bigboss.service.model.SetUserSubscriptionDto
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import java.time.LocalDateTime
-import java.time.temporal.ChronoUnit
-import java.util.*
 import javax.transaction.Transactional
 
 @Service
@@ -30,11 +26,15 @@ class UserSubscriptionService(
 ) {
 
     @Transactional
-    fun setUserSubscription(setUserSubscriptionDto: SetUserSubscriptionDto): AccountSubscriptionEntity {
-        val accountEntity: AccountEntity = accountRepository.findByUserId(setUserSubscriptionDto.userId)!!
-        val accountSubscription = accountEntity.accountSubscription
-        val subscriptionEntity = subscriptionRepository.findById(setUserSubscriptionDto.subId).orElse(null)
-            ?: throw SubscriptionNotFoundException("Not found subscriptionId=${setUserSubscriptionDto.subId}")
+    fun addUserSubscription(addUserSubscriptionDto: AddUserSubscriptionDto): AccountSubscriptionEntity {
+        val accountEntity: AccountEntity = accountRepository.findByUserId(addUserSubscriptionDto.userId)!!
+        val subscriptionEntity = subscriptionRepository.findByIdAndProductId(
+            addUserSubscriptionDto.subscriptionId,
+            addUserSubscriptionDto.productId
+        )
+            ?: throw SubscriptionNotFoundException("Not found by subscriptionId=${addUserSubscriptionDto.subscriptionId} and productId=${addUserSubscriptionDto.productId}")
+        val accountSubscription =
+            accountEntity.accountSubscriptions?.find { it.subscription?.id == addUserSubscriptionDto.subscriptionId }
         if (accountSubscription?.validUntil != null) {
             if (accountSubscription.validUntil!! < LocalDateTime.now()) {
                 throw SubscriptionAlreadyExistsException("Subscription already exists. Wait until it expire or try to upgrade")
@@ -45,24 +45,23 @@ class UserSubscriptionService(
             throw AccountBalanceLimitException("Not enough account balance. balance=${accBalance}; price=${subscriptionEntity.price}")
         }
         val accountSubscriptionEntity = if (accountSubscription == null) {
-            // Create user with subscription
             val accountSubscriptionEntity = AccountSubscriptionEntity().apply {
                 this.account = accountEntity
                 this.subscription = subscriptionEntity
-                this.validUntil = setUserSubscriptionDto.validUntil
+                this.validUntil = addUserSubscriptionDto.validUntil
                 this.state = AccountSubscriptionState.suspended
             }
             accountSubscriptionRepository.save(accountSubscriptionEntity)
         } else {
             accountSubscription.subscription = subscriptionEntity
-            accountSubscription.validUntil = setUserSubscriptionDto.validUntil
+            accountSubscription.validUntil = addUserSubscriptionDto.validUntil
             accountSubscription.state = AccountSubscriptionState.suspended
             accountSubscriptionRepository.save(accountSubscription)
         }
         applicationEventPublisher.publishEvent(
             SetUserSubscriptionEvent(
-                setUserSubscriptionDto.userId,
-                setUserSubscriptionDto.subId.toString()
+                addUserSubscriptionDto.userId,
+                addUserSubscriptionDto.subscriptionId.toString()
             )
         )
 
@@ -71,12 +70,15 @@ class UserSubscriptionService(
 
     @Transactional
     fun removeUserSubscription(removeUserSubscriptionDto: RemoveUserSubscriptionDto) {
-        accountSubscriptionRepository.deleteByAccount_UserId(removeUserSubscriptionDto.userId)
+        accountSubscriptionRepository.deleteByAccount_UserIdAndSubscription_Id(
+            removeUserSubscriptionDto.userId,
+            removeUserSubscriptionDto.subscriptionId
+        )
     }
 
     @Transactional
-    fun getAccountSubscription(userId: String): AccountSubscriptionEntity? {
-        return accountSubscriptionRepository.findByAccount_UserId(userId)
+    fun getAccountSubscriptions(userId: String): Set<AccountSubscriptionEntity>? {
+        return accountRepository.findByUserId(userId)?.accountSubscriptions
     }
 
 //    fun upgradeUserSubscription(userId: String, fromSubId: UUID, toSubId: UUID) {
@@ -94,7 +96,7 @@ class UserSubscriptionService(
 //
 //
 //        val daysLeft = ChronoUnit.DAYS.between(LocalDateTime.now(), userSubscriptionEntity.validUntil)
-//        // TODO: replace 30 days. we need calculate if user take subscipriton on multiple month
+//        // TODO: replace 30 days. we need calculate if user take subscription on multiple month
 //        val alreadyPayed = currentUserSubscription.price!! - (currentUserSubscription.price!! / 30) * (30 - daysLeft)
 //        val newSubPrice = (toSubscription.price!! / 30) * daysLeft
 //        val upgradePrice = newSubPrice - alreadyPayed

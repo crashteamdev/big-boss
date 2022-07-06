@@ -9,7 +9,7 @@ class SubscriptionEntityToSubscriptionProtoConverter : DataConverter<Subscriptio
 
     override fun convert(source: SubscriptionEntity): Subscription {
         return Subscription.newBuilder()
-            .setSubId(source.id.toString())
+            .setSubscriptionId(source.id.toString())
             .setName(source.name)
             .setDescription(source.description)
             .setPrice(source.price!!)

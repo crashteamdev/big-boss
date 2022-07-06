@@ -10,7 +10,7 @@ class ModifySubscriptionRequestToDtoConverter : DataConverter<ModifySubscription
 
     override fun convert(source: ModifySubscriptionRequest): ModifySubscriptionDto {
         return ModifySubscriptionDto(
-            subId = UUID.fromString(source.subId),
+            subscriptionId = UUID.fromString(source.subscriptionId),
             name = if (source.modifyField.hasName()) source.modifyField.name.value else null,
             description = if (source.modifyField.hasDescription()) source.modifyField.description.value else null,
             price = if (source.modifyField.hasPrice()) source.modifyField.price.value else null,

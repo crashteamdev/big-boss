@@ -7,4 +7,8 @@ import org.springframework.stereotype.Repository
 import java.util.*
 
 @Repository
-interface SubscriptionRepository : JpaRepository<SubscriptionEntity, UUID>
+interface SubscriptionRepository : JpaRepository<SubscriptionEntity, UUID> {
+    fun findByIdAndProductId(subscriptionId: UUID, productId: UUID): SubscriptionEntity?
+
+    fun findByProduct_Id(productId: UUID): List<SubscriptionEntity>
+}
