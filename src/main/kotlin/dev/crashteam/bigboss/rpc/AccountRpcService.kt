@@ -1,10 +1,13 @@
 package dev.crashteam.bigboss.rpc
 
+import com.google.protobuf.Timestamp
 import dev.crashteam.account.*
 import dev.crashteam.bigboss.service.AccountService
+import dev.crashteam.subscription.AccountProduct
 import io.grpc.stub.StreamObserver
 import mu.KotlinLogging
 import net.devh.boot.grpc.server.service.GrpcService
+import java.time.ZoneOffset
 
 @GrpcService
 class AccountRpcService(
@@ -16,12 +19,30 @@ class AccountRpcService(
         val accountEntity = accountService.getAccount(request.userId)
         val response = try {
             if (accountEntity != null) {
+                val accountProducts = accountEntity.accountSubscriptions?.map { accountSubscriptionEntity ->
+                    AccountProduct.newBuilder().apply {
+                        this.product = AccountProduct.ProductInfo.newBuilder().apply {
+                            this.productId = accountSubscriptionEntity.subscription!!.product!!.id.toString()
+                            this.name = accountSubscriptionEntity.subscription!!.product!!.name
+                        }.build()
+                        this.subscription = AccountProduct.SubscriptionInfo.newBuilder().apply {
+                            this.subscriptionId = accountSubscriptionEntity.subscription!!.id.toString()
+                            this.name = accountSubscriptionEntity.subscription!!.name
+                        }.build()
+                        val validUntilInstant = accountSubscriptionEntity.validUntil!!.toInstant(ZoneOffset.UTC)
+                        this.validUntil = Timestamp.newBuilder().setSeconds(validUntilInstant.epochSecond)
+                            .setNanos(validUntilInstant.nano).build()
+                    }.build()
+                }
                 AccountInfoResponse.newBuilder().apply {
                     this.successResponse = SuccessAccountInfoResponse.newBuilder().apply {
                         this.account = Account.newBuilder().apply {
                             this.userId = accountEntity.userId
                             this.email = accountEntity.email
                             this.blocked = accountEntity.blocked
+                            if (accountProducts != null && accountProducts.isNotEmpty()) {
+                                this.addAllProducts(accountProducts)
+                            }
                         }.build()
                     }.build()
                 }.build()
