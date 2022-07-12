@@ -107,7 +107,7 @@ class UserSubscriptionServiceTest : AbstractIntegrationTest() {
             userId = userId.toString(),
             productId = productId,
             subscriptionId = subscriptionId,
-            validUntil = LocalDateTime.now().plusDays(30)
+            period = 1
         )
 
         // When
@@ -123,7 +123,7 @@ class UserSubscriptionServiceTest : AbstractIntegrationTest() {
             userId = userId.toString(),
             productId = productId,
             subscriptionId = subscriptionId,
-            validUntil = LocalDateTime.now().plusDays(30)
+            period = 1
         )
 
         // When

@@ -17,4 +17,7 @@ class ProductEntity {
     @Column(nullable = false)
     var description: String? = null
 
+    @OneToMany(mappedBy="product", fetch = FetchType.LAZY)
+    var subscriptions: Set<SubscriptionEntity>? = null
+
 }

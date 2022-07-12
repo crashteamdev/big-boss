@@ -55,7 +55,7 @@ class SubscriptionSagaCoordinator(
             this.payload = WalletCommandEvent.EventPayload.newBuilder().apply {
                 this.walletReserveCredit = WalletReserveCredit.newBuilder().apply {
                     this.trxId = trxId
-                    this.amount = subscriptionEntity.price!!
+                    this.amount = subscriptionEntity.price!! * setUserSubscriptionEvent.period
                     this.userId = setUserSubscriptionEvent.userId
                     this.description = "Set user subscription"
                 }.build()

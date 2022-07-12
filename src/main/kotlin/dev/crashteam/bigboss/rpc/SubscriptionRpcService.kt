@@ -1,6 +1,8 @@
 package dev.crashteam.bigboss.rpc
 
+import com.google.protobuf.Empty
 import com.google.protobuf.Timestamp
+import dev.crashteam.bigboss.repository.ProductRepository
 import dev.crashteam.bigboss.repository.SubscriptionRepository
 import dev.crashteam.bigboss.repository.entity.AccountSubscriptionEntity
 import dev.crashteam.bigboss.service.SubscriptionService
@@ -19,13 +21,15 @@ import org.springframework.core.convert.ConversionService
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.*
+import javax.transaction.Transactional
 
 @GrpcService
 class SubscriptionRpcService(
     private val conversationService: ConversionService,
     private val subscriptionService: SubscriptionService,
     private val userSubscriptionService: UserSubscriptionService,
-    private val subscriptionRepository: SubscriptionRepository
+    private val subscriptionRepository: SubscriptionRepository,
+    private val productRepository: ProductRepository,
 ) : SubscriptionServiceGrpc.SubscriptionServiceImplBase() {
 
     override fun createSubscription(
@@ -101,11 +105,7 @@ class SubscriptionRpcService(
             userId = request.userId,
             productId = UUID.fromString(request.productId),
             subscriptionId = UUID.fromString(request.subscriptionId),
-            validUntil = LocalDateTime.ofEpochSecond(
-                request.validUntil.seconds,
-                request.validUntil.nanos,
-                ZoneOffset.UTC
-            )
+            period = request.period
         )
         val response = try {
             val accountSubscription: AccountSubscriptionEntity =
@@ -226,10 +226,30 @@ class SubscriptionRpcService(
         val allSubscriptionResponse = GetAllSubscriptionResponse.newBuilder().apply {
             for (subscriptionEntity in subscriptionList) {
                 val subscription = conversationService.convert(subscriptionEntity, Subscription::class.java)
-                addPlan(subscription)
+                addSubscription(subscription)
             }
         }.build()
         responseObserver.onNext(allSubscriptionResponse)
+        responseObserver.onCompleted()
+    }
+
+    @Transactional
+    override fun getAllProduct(request: Empty, responseObserver: StreamObserver<GetAllProductResponse>) {
+        log.info { "Get all products: $request" }
+        val productEntities = productRepository.findAll()
+        val allProductResponse = GetAllProductResponse.newBuilder().apply {
+            for (productEntity in productEntities) {
+                addProduct(Product.newBuilder().apply {
+                    this.productId = productEntity.id.toString()
+                    this.name = productEntity.name
+                    this.description = productEntity.description
+                    val subscriptions =
+                        productEntity.subscriptions!!.map { conversationService.convert(it, Subscription::class.java) }
+                    this.addAllSubscriptions(subscriptions)
+                })
+            }
+        }.build()
+        responseObserver.onNext(allProductResponse)
         responseObserver.onCompleted()
     }
 

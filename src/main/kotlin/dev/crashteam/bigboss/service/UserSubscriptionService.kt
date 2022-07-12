@@ -32,7 +32,8 @@ class UserSubscriptionService(
             addUserSubscriptionDto.subscriptionId,
             addUserSubscriptionDto.productId
         )
-            ?: throw SubscriptionNotFoundException("Not found by subscriptionId=${addUserSubscriptionDto.subscriptionId} and productId=${addUserSubscriptionDto.productId}")
+            ?: throw SubscriptionNotFoundException("Not found by subscriptionId=${addUserSubscriptionDto.subscriptionId}" +
+                    " and productId=${addUserSubscriptionDto.productId}")
         val accountSubscription =
             accountEntity.accountSubscriptions?.find { it.subscription?.id == addUserSubscriptionDto.subscriptionId }
         if (accountSubscription?.validUntil != null) {
@@ -41,27 +42,30 @@ class UserSubscriptionService(
             }
         }
         val accBalance = accountEntity.wallet?.balance ?: 0
-        if (accBalance < subscriptionEntity.price!!) {
+        val subscriptionPrice = subscriptionEntity.price!! * addUserSubscriptionDto.period
+        if (accBalance < subscriptionPrice) {
             throw AccountBalanceLimitException("Not enough account balance. balance=${accBalance}; price=${subscriptionEntity.price}")
         }
+        val validUntil = LocalDateTime.now().plusDays(30L * addUserSubscriptionDto.period)
         val accountSubscriptionEntity = if (accountSubscription == null) {
             val accountSubscriptionEntity = AccountSubscriptionEntity().apply {
                 this.account = accountEntity
                 this.subscription = subscriptionEntity
-                this.validUntil = addUserSubscriptionDto.validUntil
+                this.validUntil = validUntil
                 this.state = AccountSubscriptionState.suspended
             }
             accountSubscriptionRepository.save(accountSubscriptionEntity)
         } else {
             accountSubscription.subscription = subscriptionEntity
-            accountSubscription.validUntil = addUserSubscriptionDto.validUntil
+            accountSubscription.validUntil = validUntil
             accountSubscription.state = AccountSubscriptionState.suspended
             accountSubscriptionRepository.save(accountSubscription)
         }
         applicationEventPublisher.publishEvent(
             SetUserSubscriptionEvent(
                 addUserSubscriptionDto.userId,
-                addUserSubscriptionDto.subscriptionId.toString()
+                addUserSubscriptionDto.subscriptionId.toString(),
+                addUserSubscriptionDto.period
             )
         )
 

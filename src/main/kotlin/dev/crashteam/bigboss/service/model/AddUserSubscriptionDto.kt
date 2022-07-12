@@ -7,5 +7,5 @@ data class AddUserSubscriptionDto(
     val userId: String,
     val productId: UUID,
     val subscriptionId: UUID,
-    val validUntil: LocalDateTime
+    val period: Int
 )
