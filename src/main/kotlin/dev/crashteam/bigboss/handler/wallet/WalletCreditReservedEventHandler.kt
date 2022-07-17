@@ -1,5 +1,6 @@
 package dev.crashteam.bigboss.handler.wallet
 
+import dev.crashteam.bigboss.repository.SubscriptionSagaCoordinatorRepository
 import dev.crashteam.bigboss.saga.event.CommitUserSubscriptionEvent
 import dev.crashteam.chest.event.WalletReplyEvent
 import org.springframework.context.ApplicationEventPublisher
@@ -9,6 +10,7 @@ import javax.transaction.Transactional
 @Component
 class WalletCreditReservedEventHandler(
     private val applicationEventPublisher: ApplicationEventPublisher,
+    private val sagaCoordinatorRepository: SubscriptionSagaCoordinatorRepository,
 ) : WalletReplyEventHandler {
 
     @Transactional
@@ -27,6 +29,8 @@ class WalletCreditReservedEventHandler(
     }
 
     override fun isHandle(walletEvent: WalletReplyEvent): Boolean {
-        return walletEvent.payload.hasWalletCreditReserved()
+        return walletEvent.payload.hasWalletCreditReserved() &&
+                sagaCoordinatorRepository.findById(walletEvent.payload.walletCreditReserved.trxId)
+                    .orElse(null) != null
     }
 }
