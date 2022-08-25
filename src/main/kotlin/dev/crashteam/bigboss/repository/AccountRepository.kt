@@ -11,4 +11,6 @@ interface AccountRepository : JpaRepository<AccountEntity, Long> {
 
     fun findByUserId(userId: String): AccountEntity?
 
+    fun deleteByUserId(userId: String)
+
 }

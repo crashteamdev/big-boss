@@ -51,6 +51,7 @@ spring:
 bboss:
   wallet-command-topic-name: be_wallet_command # <message type>.<dataset name>.<data name>
   wallet-command-response-topic-name: be_wallet_command_response
+  account-cud-topic-name: cud_account
 
 grpc:
   shutdownGrace: 30

@@ -88,4 +88,26 @@ class KafkaConfig {
         return factory
     }
 
+    @Bean
+    fun accountCudConsumerConfigs(): Map<String, Any> {
+        val props: MutableMap<String, Any> = HashMap()
+        props[ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG] = bootstrapServers
+        props[ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG] = StringDeserializer::class.java
+        props[ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG] = ByteArrayDeserializer::class.java
+        props[ConsumerConfig.GROUP_ID_CONFIG] = "account-bboss-cud-group"
+        props[ConsumerConfig.MAX_POLL_RECORDS_CONFIG] = "50"
+        return props
+    }
+
+    @Bean
+    fun accountCudListenerContainerFactory(): ConcurrentKafkaListenerContainerFactory<String, ByteArray> {
+        val factory: ConcurrentKafkaListenerContainerFactory<String, ByteArray> =
+            ConcurrentKafkaListenerContainerFactory()
+        factory.consumerFactory = DefaultKafkaConsumerFactory(accountCudConsumerConfigs())
+        factory.isBatchListener = true
+        factory.setCommonErrorHandler(DefaultErrorHandler(FixedBackOff()).apply { isAckAfterHandle = false })
+        factory.containerProperties.ackMode = ContainerProperties.AckMode.MANUAL
+        return factory
+    }
+
 }
